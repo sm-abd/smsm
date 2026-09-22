@@ -40,7 +40,7 @@ export const siteSettings: SiteSettings = {
   descriptor: "Land acquisition, development and investment",
   reraNumber: "TG/AGT/000000",
   phone: "+91 90000 00000",
-  email: "desk@sudhasquare.in",
+  email: "desk@sudhasquare.com",
   whatsappNumber: "919000000000",
   addressLines: ["Banjara Hills", "Hyderabad 500034", "Telangana, India"],
   linkedin: "https://www.linkedin.com/company/sudhasquare",
