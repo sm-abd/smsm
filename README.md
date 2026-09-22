@@ -37,19 +37,21 @@ Content is managed in Sanity. The Studio is built into this app at
 **`/studio`** - there is no separate deploy. The free tier covers this site
 comfortably.
 
-1. Sign in at [sanity.io/manage](https://sanity.io/manage) (Google sign-in is
-   fine) and create a project. Keep the default dataset name, `production`.
-2. Copy the **project ID** from the project dashboard. It is a short
-   alphanumeric string, something like `7fk2p9xa`.
-3. Create `.env.local` (copy `.env.example`) and set:
+The project already exists: **`pav1anhp`**, dataset `production`. A project ID
+is a public identifier - it ships to the browser in `NEXT_PUBLIC_` form and is
+committed in `.env.example`. The API token is not; see *Secrets* below.
+
+1. Copy `.env.example` to `.env.local`. The Sanity project ID is already in
+   it.
+2. Add the write token to `.env.local`. It lives at
+   [sanity.io/manage](https://sanity.io/manage) under
+   **API > Tokens** (Editor permissions):
 
    ```
-   NEXT_PUBLIC_SANITY_PROJECT_ID=your-project-id
+   SANITY_API_WRITE_TOKEN=sk...
    ```
 
-4. Create an API token at **Manage > API > Tokens** with **Editor**
-   permissions, and add it as `SANITY_API_WRITE_TOKEN`.
-5. Restart the dev server, then load the starter content:
+3. Load the starter content once, into the empty dataset:
 
    ```bash
    npm run seed
@@ -60,11 +62,12 @@ comfortably.
    means it overwrites edits made in the Studio to those same documents. Do
    not run it casually once the client has started working.
 
-6. Open `/studio` and edit.
+4. Run `npm run dev`, open `/studio`, and edit.
 
-Visiting `/studio` before step 3 shows a setup screen rather than an error.
+Visiting `/studio` without a project ID set shows a setup screen rather than an
+error.
 
-**Between steps 3 and 5 the site does not break.** Once the project ID is set
+**Between steps 1 and 3 the site does not break.** Once the project ID is set
 but before `npm run seed` runs, the dataset is empty, and most homepage
 sections would otherwise delete themselves - the components render nothing
 when handed an empty list. The data layer detects an unseeded dataset (no
@@ -92,10 +95,9 @@ section heading, every page header and all listing content are edited in the
 Studio. The only strings left in the source are form field labels, button
 text and the 404 page.
 
-After publishing in the Studio, an edit reaches the live site within an hour
-(pages are prerendered and revalidated hourly), or immediately on the next
-deploy. To make edits appear instantly, add a Sanity webhook pointing at a
-revalidation route - not wired up yet.
+After publishing in the Studio, the edit is live on the next page load - see
+*How content reaches the site* below. There is no webhook to configure and no
+revalidation window to wait out.
 
 Read time on articles is derived from the article body, so it can never drift
 out of sync with an edited post.
@@ -112,7 +114,7 @@ The contact form and the brief request are delivered by email through
 
 ```
 RESEND_API_KEY=...
-ENQUIRY_TO_EMAIL=desk@sudhasquare.in
+ENQUIRY_TO_EMAIL=desk@sudhasquare.com
 ENQUIRY_FROM_EMAIL="Sudha Square <noreply@your-verified-domain.com>"
 ```
 
@@ -127,20 +129,84 @@ swallowing an enquiry.
 
 ## Deploying
 
-Nothing in the app is host-specific.
+The app lives at the **repository root**, so Vercel detects it with no Root
+Directory override. `vercel.json` pins the framework preset, so a deploy works
+even before the project is linked in the dashboard.
 
-**Vercel (recommended).** Push to GitHub, import the repo, add the
-environment variables above. Point the domain's DNS at Vercel; if the domain
-is registered with Hostinger it can keep serving email there.
+### Secrets
 
-**A VPS.** `npm run build && npm start` behind a reverse proxy. Node 20.9+.
+Two rules, and nothing else to remember:
 
-`vercel.json` pins the framework preset, so a deploy works even when the
-project has not been linked in the Vercel dashboard yet.
+- `NEXT_PUBLIC_*` variables are **not secret**. They are compiled into the
+  browser bundle. The Sanity project ID and the site URL are of this kind and
+  are committed in `.env.example`.
+- Everything else is a secret and belongs in `.env.local` (git-ignored) and in
+  the Vercel dashboard. Never in a commit. `.gitignore` covers `.env*` with a
+  single exception for `.env.example`.
 
-Note that Hostinger's *shared* web hosting cannot run this app: it needs a
-Node server. Hostinger **VPS** plans can. If the plan turns out to be shared
-hosting, use it for the domain and mailboxes and deploy the app to Vercel.
+A leaked `SANITY_API_WRITE_TOKEN` lets anyone rewrite the site's content, and
+a leaked `RESEND_API_KEY` lets anyone send mail as the domain. If either ends
+up somewhere it should not - a screenshot, a chat, a commit - revoke it in the
+provider dashboard and issue a new one. Revoking is instant and free; the only
+cost is pasting the replacement into `.env.local` and Vercel.
+
+### Vercel
+
+1. Import the GitHub repo. Framework preset resolves to Next.js; leave Root
+   Directory empty.
+2. Set the environment variables, for **all three** environments (Production,
+   Preview, Development):
+
+   | Variable | Value | Secret |
+   | --- | --- | --- |
+   | `NEXT_PUBLIC_SANITY_PROJECT_ID` | `pav1anhp` | no |
+   | `NEXT_PUBLIC_SANITY_DATASET` | `production` | no |
+   | `NEXT_PUBLIC_SANITY_API_VERSION` | `2026-08-20` | no |
+   | `NEXT_PUBLIC_SITE_URL` | `https://sudhasquare.com` | no |
+   | `SANITY_API_WRITE_TOKEN` | the Editor token | **yes** |
+   | `RESEND_API_KEY` | the Resend key | **yes** |
+   | `ENQUIRY_TO_EMAIL` | where enquiries land | no |
+   | `ENQUIRY_FROM_EMAIL` | `Sudha Square <noreply@sudhasquare.com>` | no |
+
+   The four `NEXT_PUBLIC_` values have working defaults in the code, so a
+   deploy missing them still builds - it just points canonical URLs and share
+   cards at the wrong place. The enquiry form is the one that fails loudly in
+   production when unconfigured, by design.
+3. Deploy, then add `sudhasquare.com` under **Settings > Domains**. Add the
+   apex and let Vercel add the `www` redirect.
+
+### DNS at Hostinger
+
+The domain stays registered at Hostinger; only the records change. In
+**hPanel > Domains > DNS / Nameservers**, keep Hostinger's nameservers and
+edit the records - that way Hostinger keeps serving mail:
+
+| Type | Name | Value |
+| --- | --- | --- |
+| `A` | `@` | `76.76.21.21` |
+| `CNAME` | `www` | `cname.vercel-dns.com` |
+
+Delete any existing `A` or `CNAME` on `@` and `www` that point at Hostinger
+hosting, or the new records will not take. **Leave the `MX` and mail-related
+`TXT` records alone** - deleting those is what breaks email.
+
+Vercel's dashboard shows the exact values it wants when the domain is added;
+if they differ from the table above, Vercel is right and this file is stale.
+Propagation is usually minutes, up to 48 hours. The HTTPS certificate is
+issued automatically once the records resolve.
+
+Handing the whole domain to Vercel's nameservers also works and is less
+fiddly, but then Hostinger email needs its MX records re-created on the Vercel
+side. Not worth it for this site.
+
+### Anywhere else
+
+`npm run build && npm start` behind a reverse proxy. Node 20.9+. Nothing in
+the app is host-specific.
+
+Hostinger's *shared* web hosting cannot run this app: it needs a Node server.
+Hostinger **VPS** plans can. If the plan turns out to be shared hosting, use it
+for the domain and mailboxes and deploy the app to Vercel.
 
 ---
 

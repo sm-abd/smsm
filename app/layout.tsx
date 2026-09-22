@@ -28,7 +28,7 @@ const manrope = Manrope({
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://sudhasquare.in",
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://sudhasquare.com",
   ),
   title: {
     default: "Sudha Square: Land Advisory in Hyderabad",

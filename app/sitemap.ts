@@ -7,7 +7,7 @@ import {
   getServiceSlugs,
 } from "@/lib/data";
 
-const BASE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://sudhasquare.in";
+const BASE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://sudhasquare.com";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [parcels, posts, services, caseStudies] = await Promise.all([
